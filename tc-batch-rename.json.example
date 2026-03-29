@@ -1,0 +1,8 @@
+{
+  "editorPath": "notepad.exe",
+  "editorArguments": [
+    "{file}"
+  ],
+  "editorWorkingDirectory": "",
+  "confirmBeforeRename": true
+}
