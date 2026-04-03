@@ -1,8 +1,6 @@
 {
-  "editorPath": "notepad.exe",
-  "editorArguments": [
-    "{file}"
-  ],
+  "editorPath": "C:\\Users\\inwen\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
+  "editorArguments": ["--wait", "{file}"],
   "editorWorkingDirectory": "",
   "confirmBeforeRename": true
 }
