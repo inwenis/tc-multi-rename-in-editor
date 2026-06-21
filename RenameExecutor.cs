@@ -2,97 +2,132 @@ namespace TcBatchRename;
 
 internal static class RenameExecutor
 {
-    public static void Execute(RenamePlan plan)
+    public static RenameResult Execute(RenamePlan plan)
     {
-        var tempMoved = new List<RenamePlanItem>(plan.ChangedItems.Count);
-        var finalMoved = new List<RenamePlanItem>(plan.ChangedItems.Count);
-        RenamePlanItem? failingItem = null;
-        string? fromPath = null;
-        string? toPath = null;
-        string phase = "preparation";
-
-        try
+        foreach (RenamePlanItem item in plan.ChangedItems)
         {
-            foreach (RenamePlanItem item in plan.ChangedItems)
-            {
-                item.TemporaryPath = CreateTemporaryPath(item.Source.DirectoryPath, item.Source.Name);
-            }
+            item.TemporaryPath = CreateTemporaryPath(item.Source.DirectoryPath, item.Source.Name);
+        }
 
-            phase = "temporary rename";
-            foreach (RenamePlanItem item in plan.ChangedItems)
+        var failed = new List<RenameFailure>();
+        var tempMoved = new List<RenamePlanItem>(plan.ChangedItems.Count);
+
+        // Phase 1: move every changed file to a unique temporary name. A file held
+        // open by another process is recorded as failed and skipped; the rest go on.
+        foreach (RenamePlanItem item in plan.ChangedItems)
+        {
+            try
             {
-                failingItem = item;
-                fromPath = item.Source.FullPath;
-                toPath = item.TemporaryPath;
                 File.Move(item.Source.FullPath, item.TemporaryPath!);
                 tempMoved.Add(item);
             }
-
-            phase = "final rename";
-            foreach (RenamePlanItem item in plan.ChangedItems)
+            catch (Exception ex) when (IsRetryable(ex))
             {
-                failingItem = item;
-                fromPath = item.TemporaryPath;
-                toPath = item.TargetPath;
-                File.Move(item.TemporaryPath!, item.TargetPath);
-                finalMoved.Add(item);
+                failed.Add(new RenameFailure(item, DescribeFailure(ex)));
+            }
+            catch (Exception ex)
+            {
+                RestoreAllFromTemp(tempMoved);
+                throw HardError("temporary rename", item.Source.FullPath, item.TemporaryPath, ex);
             }
         }
-        catch (Exception ex)
+
+        // Phase 2: move each temporary file to its final target. A target still
+        // occupied by a locked file (for example the other half of a swap) fails;
+        // that item is restored to its original name and reported as failed.
+        var succeeded = new List<RenamePlanItem>(tempMoved.Count);
+        foreach (RenamePlanItem item in tempMoved)
         {
-            string rollbackMessage = RollBack(tempMoved, finalMoved);
-            throw new InvalidOperationException(
-                $"Rename failed during {phase}.\r\n\r\n" +
-                $"From: {fromPath ?? failingItem?.Source.FullPath ?? "(unknown)"}\r\n" +
-                $"To:   {toPath ?? failingItem?.TargetPath ?? "(unknown)"}\r\n\r\n" +
-                $"{ex.Message}\r\n\r\n" +
-                rollbackMessage);
+            try
+            {
+                File.Move(item.TemporaryPath!, item.TargetPath);
+                succeeded.Add(item);
+            }
+            catch (Exception ex) when (IsRetryable(ex))
+            {
+                SafeMove(item.TemporaryPath!, item.Source.FullPath);
+                failed.Add(new RenameFailure(item, DescribeFailure(ex)));
+            }
+            catch (Exception ex)
+            {
+                RestoreAllFromTarget(succeeded);
+                RestoreAllFromTemp(tempMoved.Where(moved => !succeeded.Contains(moved)));
+                throw HardError("final rename", item.TemporaryPath, item.TargetPath, ex);
+            }
+        }
+
+        return new RenameResult(succeeded, failed);
+    }
+
+    private static bool IsRetryable(Exception ex)
+    {
+        if (ex is UnauthorizedAccessException)
+        {
+            return true;
+        }
+
+        if (ex is IOException)
+        {
+            return (ex.HResult & 0xFFFF) switch
+            {
+                0x20 => true, // ERROR_SHARING_VIOLATION
+                0x21 => true, // ERROR_LOCK_VIOLATION
+                0x05 => true, // ERROR_ACCESS_DENIED
+                0x50 => true, // ERROR_FILE_EXISTS
+                0xB7 => true, // ERROR_ALREADY_EXISTS
+                _ => false,
+            };
+        }
+
+        return false;
+    }
+
+    private static string DescribeFailure(Exception ex)
+    {
+        return ex switch
+        {
+            UnauthorizedAccessException => "Access denied (file may be open elsewhere or read-only).",
+            IOException io when (io.HResult & 0xFFFF) is 0x50 or 0xB7
+                => "Target name is blocked by another locked file.",
+            _ => "Locked or in use by another process.",
+        };
+    }
+
+    private static void RestoreAllFromTemp(IEnumerable<RenamePlanItem> tempMoved)
+    {
+        foreach (RenamePlanItem item in tempMoved)
+        {
+            SafeMove(item.TemporaryPath!, item.Source.FullPath);
         }
     }
 
-    private static string RollBack(
-        IReadOnlyList<RenamePlanItem> tempMoved,
-        IReadOnlyList<RenamePlanItem> finalMoved)
+    private static void RestoreAllFromTarget(IEnumerable<RenamePlanItem> finalMoved)
     {
-        var rollbackErrors = new List<string>();
-        var finalMovedSet = new HashSet<RenamePlanItem>(finalMoved);
-
-        for (int index = finalMoved.Count - 1; index >= 0; index--)
+        foreach (RenamePlanItem item in finalMoved)
         {
-            RenamePlanItem item = finalMoved[index];
-            try
-            {
-                File.Move(item.TargetPath, item.Source.FullPath);
-            }
-            catch (Exception ex)
-            {
-                rollbackErrors.Add(
-                    $"Failed to roll back {item.TargetPath} -> {item.Source.FullPath}: {ex.Message}");
-            }
+            SafeMove(item.TargetPath, item.Source.FullPath);
         }
+    }
 
-        for (int index = tempMoved.Count - 1; index >= 0; index--)
+    private static void SafeMove(string from, string to)
+    {
+        try
         {
-            RenamePlanItem item = tempMoved[index];
-            if (finalMovedSet.Contains(item))
-            {
-                continue;
-            }
-
-            try
-            {
-                File.Move(item.TemporaryPath!, item.Source.FullPath);
-            }
-            catch (Exception ex)
-            {
-                rollbackErrors.Add(
-                    $"Failed to roll back {item.TemporaryPath} -> {item.Source.FullPath}: {ex.Message}");
-            }
+            File.Move(from, to);
         }
+        catch
+        {
+        }
+    }
 
-        return rollbackErrors.Count == 0
-            ? "Rollback completed. Files were restored to their original names."
-            : "Rollback was attempted, but some files could not be restored:\r\n\r\n" + string.Join("\r\n", rollbackErrors);
+    private static InvalidOperationException HardError(string phase, string? fromPath, string? toPath, Exception ex)
+    {
+        return new InvalidOperationException(
+            $"Rename failed during {phase}.\r\n\r\n" +
+            $"From: {fromPath ?? "(unknown)"}\r\n" +
+            $"To:   {toPath ?? "(unknown)"}\r\n\r\n" +
+            $"{ex.Message}\r\n\r\n" +
+            "Recoverable files were restored to their original names.");
     }
 
     private static string CreateTemporaryPath(string directoryPath, string originalName)

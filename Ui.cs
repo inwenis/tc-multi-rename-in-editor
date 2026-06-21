@@ -112,6 +112,115 @@ internal static class Ui
         return form.ShowDialog(owner) == DialogResult.OK;
     }
 
+    /// <summary>
+    /// Shows the rename outcome after at least one file could not be renamed.
+    /// Returns true if the user chose to retry the locked files, false to close.
+    /// </summary>
+    public static bool ShowRenameResults(
+        IReadOnlyList<RenamePlanItem> succeeded,
+        IReadOnlyList<RenameFailure> failed)
+    {
+        using var form = new Form
+        {
+            Text = $"Rename Results — {failed.Count} Locked",
+            StartPosition = FormStartPosition.CenterScreen,
+            MinimumSize = new Size(900, 600),
+            ClientSize = new Size(900, 600),
+            TopMost = true
+        };
+
+        form.Shown += static (sender, _) =>
+        {
+            if (sender is Form shownForm)
+            {
+                shownForm.Activate();
+                shownForm.BringToFront();
+            }
+        };
+
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 3,
+            Padding = new Padding(12)
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        var messageLabel = new Label
+        {
+            AutoSize = true,
+            Dock = DockStyle.Fill,
+            Text =
+                $"{succeeded.Count} file(s) renamed, {failed.Count} could not be renamed because they are " +
+                "in use by another process.\r\n" +
+                "Close the application holding the locked files, then click Retry locked. " +
+                "Click Close to leave them unchanged."
+        };
+
+        var lines = new List<string>(succeeded.Count + failed.Count);
+        foreach (RenameFailure failure in failed)
+        {
+            lines.Add($"{failure.Item.Source.Name}  ->  {failure.Item.NewName}   LOCKED ({failure.Reason})");
+        }
+
+        foreach (RenamePlanItem item in succeeded)
+        {
+            lines.Add($"{item.Source.Name}  ->  {item.NewName}   OK");
+        }
+
+        var resultsBox = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            Multiline = true,
+            ReadOnly = true,
+            ScrollBars = ScrollBars.Both,
+            WordWrap = false,
+            Font = new Font("Consolas", 9F),
+            Text = string.Join(Environment.NewLine, lines)
+        };
+
+        var buttonPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.RightToLeft,
+            AutoSize = true
+        };
+
+        var retryButton = new Button
+        {
+            Text = "Retry locked",
+            DialogResult = DialogResult.Retry,
+            AutoSize = true
+        };
+
+        var closeButton = new Button
+        {
+            Text = "Close",
+            DialogResult = DialogResult.Cancel,
+            AutoSize = true
+        };
+
+        buttonPanel.Controls.Add(retryButton);
+        buttonPanel.Controls.Add(closeButton);
+
+        layout.Controls.Add(messageLabel, 0, 0);
+        layout.Controls.Add(resultsBox, 0, 1);
+        layout.Controls.Add(buttonPanel, 0, 2);
+
+        form.Controls.Add(layout);
+        form.AcceptButton = retryButton;
+        form.CancelButton = closeButton;
+
+        using var owner = CreateDialogOwner();
+        owner.Show();
+        owner.Activate();
+
+        return form.ShowDialog(owner) == DialogResult.Retry;
+    }
+
     private static void ShowMessageBox(
         string title,
         string message,
