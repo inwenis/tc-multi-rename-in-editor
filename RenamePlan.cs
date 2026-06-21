@@ -34,3 +34,31 @@ internal sealed class RenamePlanItem
 
     public bool NeedsRename => !string.Equals(Source.Name, NewName, StringComparison.Ordinal);
 }
+
+internal sealed class RenameResult
+{
+    public RenameResult(IReadOnlyList<RenamePlanItem> succeeded, IReadOnlyList<RenameFailure> failed)
+    {
+        Succeeded = succeeded;
+        Failed = failed;
+    }
+
+    public IReadOnlyList<RenamePlanItem> Succeeded { get; }
+
+    public IReadOnlyList<RenameFailure> Failed { get; }
+
+    public bool HasFailures => Failed.Count > 0;
+}
+
+internal sealed class RenameFailure
+{
+    public RenameFailure(RenamePlanItem item, string reason)
+    {
+        Item = item;
+        Reason = reason;
+    }
+
+    public RenamePlanItem Item { get; }
+
+    public string Reason { get; }
+}

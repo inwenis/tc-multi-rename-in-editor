@@ -57,7 +57,24 @@ internal static class Program
                 return 0;
             }
 
-            RenameExecutor.Execute(plan);
+            var succeeded = new List<RenamePlanItem>();
+            var result = RenameExecutor.Execute(plan);
+            succeeded.AddRange(result.Succeeded);
+
+            while (result.HasFailures)
+            {
+                bool userChoseToRetry = Ui.ShowRenameResults(succeeded, result.Failed);
+                if (!userChoseToRetry)
+                {
+                    // User left some files locked; report non-success to Total Commander.
+                    return 1;
+                }
+
+                var retryPlan = new RenamePlan(result.Failed.Select(static failure => failure.Item).ToList());
+                result = RenameExecutor.Execute(retryPlan);
+                succeeded.AddRange(result.Succeeded);
+            }
+
             return 0;
         }
         catch (Exception ex)

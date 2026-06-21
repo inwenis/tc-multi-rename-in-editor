@@ -9,7 +9,12 @@
 
   <ItemGroup>
     <Compile Remove="src\**\*.cs" />
+    <Compile Remove="tests\**\*.cs" />
     <None Include="tc-batch-rename.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="tc-batch-rename.json.example" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="TcBatchRename.Tests" />
   </ItemGroup>
 </Project>

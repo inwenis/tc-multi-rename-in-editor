@@ -15,7 +15,9 @@ Internally the helper uses a two-phase rename:
 1. Every changed file is renamed to a unique temporary name in its original directory.
 2. After all temporary renames succeed, every file is renamed from its temporary name to the final target name.
 
-That makes swaps and case-only renames safe and avoids most preventable partial-rename conflicts. If a rename still fails, the tool attempts a rollback and reports the error clearly.
+That makes swaps and case-only renames safe and avoids most preventable partial-rename conflicts.
+
+If some files cannot be renamed because another process holds them open, the tool does not abort everything. It renames every file it can, leaves the locked files at their original names, and shows a results window that marks each locked file. Close the application holding those files and click **Retry locked** to re-attempt only the failed ones. Any other, unexpected failure still rolls back and reports a hard error.
 
 ## Behavior
 
@@ -28,6 +30,7 @@ The helper does the following:
 5. If nothing changed, it exits without renaming anything.
 6. If validation passes, it shows a rename preview and asks for confirmation.
 7. If confirmed, it renames the files.
+8. If any file is locked by another process, it shows a results window marking the locked files and offers a retry for just those.
 
 Validation rules:
 
