@@ -39,6 +39,7 @@ internal static class Ui
             {
                 shownForm.Activate();
                 shownForm.BringToFront();
+                NativeMethods.ForceForegroundWindow(shownForm.Handle);
             }
         };
 
@@ -135,6 +136,7 @@ internal static class Ui
             {
                 shownForm.Activate();
                 shownForm.BringToFront();
+                NativeMethods.ForceForegroundWindow(shownForm.Handle);
             }
         };
 
