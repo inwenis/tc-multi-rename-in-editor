@@ -58,13 +58,13 @@ internal static class Program
             }
 
             var succeeded = new List<RenamePlanItem>();
-            RenameResult result = RenameExecutor.Execute(plan);
+            var result = RenameExecutor.Execute(plan);
             succeeded.AddRange(result.Succeeded);
 
             while (result.HasFailures)
             {
-                bool retry = Ui.ShowRenameResults(succeeded, result.Failed);
-                if (!retry)
+                bool userChoseToRetry = Ui.ShowRenameResults(succeeded, result.Failed);
+                if (!userChoseToRetry)
                 {
                     // User left some files locked; report non-success to Total Commander.
                     return 1;
