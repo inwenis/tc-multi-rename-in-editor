@@ -127,7 +127,7 @@ internal static class RenameExecutor
             $"From: {fromPath ?? "(unknown)"}\r\n" +
             $"To:   {toPath ?? "(unknown)"}\r\n\r\n" +
             $"{ex.Message}\r\n\r\n" +
-            "Recoverable files were restored to their original names.");
+            "The tool attempted to restore the other files to their original names.");
     }
 
     private static string CreateTemporaryPath(string directoryPath, string originalName)
