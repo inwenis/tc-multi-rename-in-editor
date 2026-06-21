@@ -41,31 +41,33 @@ Validation rules:
 - Existing target-file conflicts abort the entire operation.
 - Only the leaf file name may change. The original directory is always preserved.
 
-## Build
+## Build and deploy
 
-### Recommended baseline: portable publish
-
-```powershell
-.\publish.ps1
-```
-
-This publishes the app to `artifacts\publish\portable`. It is the least fragile publish option because it does not require downloading extra runtime packs at publish time.
-
-### Optional: single-file framework-dependent publish
+### Quick build
 
 ```powershell
-.\publish.ps1 -Runtime win-x64 -SingleFile
+.\build.ps1
 ```
 
-This produces a single-file executable in `artifacts\publish\win-x64`, but it requires a matching .NET 10 desktop runtime on the target machine.
+This builds a single-file, framework-dependent executable at `artifacts\publish\win-x64\TcBatchRename.exe`. It requires a matching .NET 10 desktop runtime on the target machine.
 
-### Optional: single-file self-contained publish
+### Deploy
 
 ```powershell
-.\publish.ps1 -Runtime win-x64 -SingleFile -SelfContained
+.\deploy.ps1
 ```
 
-Use this if you want the easiest deployment on a machine that may not already have the matching .NET runtime. The first self-contained publish may need to download runtime packs from NuGet.
+This rebuilds, then deploys to `C:\programki`:
+
+- Creates the target directory if it does not exist.
+- Copies `TcBatchRename.exe` (overwrites).
+- Copies `tc-batch-rename.json` only if it is missing at the target, so a tuned deployed config survives redeploys.
+
+Deploy to a different location with `-Target`:
+
+```powershell
+.\deploy.ps1 -Target "C:\Tools\TcBatchRename"
+```
 
 ## Configuration
 
@@ -108,15 +110,15 @@ For editors like VS Code that usually return immediately, you must include the e
 
 ## Total Commander Setup
 
-Place the published executable somewhere stable, for example:
+Run `.\deploy.ps1` to place the executable at the stable default location:
 
 ```text
-C:\Tools\TcBatchRename\TcBatchRename.exe
+C:\programki\TcBatchRename.exe
 ```
 
 Then create a button, menu item, or user command in Total Commander with:
 
-- Command: `C:\Tools\TcBatchRename\TcBatchRename.exe`
+- Command: `C:\programki\TcBatchRename.exe`
 - Parameters: `--list "%UL"`
 - Start path: `%P`
 
@@ -132,7 +134,7 @@ These two examples are equivalent:
 
 ### Total Commander button or user command
 
-- Command: `C:\Tools\TcBatchRename\TcBatchRename.exe`
+- Command: `C:\programki\TcBatchRename.exe`
 - Parameters: `--list "%UL"`
 
 ### Manual command line test
