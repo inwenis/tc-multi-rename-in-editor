@@ -41,7 +41,35 @@ Validation rules:
 - Existing target-file conflicts abort the entire operation.
 - Only the leaf file name may change. The original directory is always preserved.
 
-## Build
+## Build and deploy
+
+### Quick build
+
+```powershell
+.\build.ps1
+```
+
+This builds a single-file, framework-dependent executable at `artifacts\publish\win-x64\TcBatchRename.exe`. It requires a matching .NET 10 desktop runtime on the target machine. `build.ps1` is a thin wrapper over `publish.ps1 -Runtime win-x64 -SingleFile`.
+
+### Deploy
+
+```powershell
+.\deploy.ps1
+```
+
+This rebuilds, then deploys to `C:\programki`:
+
+- Creates the target directory if it does not exist.
+- Copies `TcBatchRename.exe` (overwrites).
+- Copies `tc-batch-rename.json` only if it is missing at the target, so a tuned deployed config survives redeploys.
+
+Deploy to a different location with `-Target`:
+
+```powershell
+.\deploy.ps1 -Target "C:\Tools\TcBatchRename"
+```
+
+## Build (publish options)
 
 ### Recommended baseline: portable publish
 
@@ -108,15 +136,15 @@ For editors like VS Code that usually return immediately, you must include the e
 
 ## Total Commander Setup
 
-Place the published executable somewhere stable, for example:
+Run `.\deploy.ps1` to place the executable at the stable default location:
 
 ```text
-C:\Tools\TcBatchRename\TcBatchRename.exe
+C:\programki\TcBatchRename.exe
 ```
 
 Then create a button, menu item, or user command in Total Commander with:
 
-- Command: `C:\Tools\TcBatchRename\TcBatchRename.exe`
+- Command: `C:\programki\TcBatchRename.exe`
 - Parameters: `--list "%UL"`
 - Start path: `%P`
 
@@ -132,7 +160,7 @@ These two examples are equivalent:
 
 ### Total Commander button or user command
 
-- Command: `C:\Tools\TcBatchRename\TcBatchRename.exe`
+- Command: `C:\programki\TcBatchRename.exe`
 - Parameters: `--list "%UL"`
 
 ### Manual command line test
