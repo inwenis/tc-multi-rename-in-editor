@@ -49,7 +49,7 @@ Validation rules:
 .\build.ps1
 ```
 
-This builds a single-file, framework-dependent executable at `artifacts\publish\win-x64\TcBatchRename.exe`. It requires a matching .NET 10 desktop runtime on the target machine. `build.ps1` is a thin wrapper over `publish.ps1 -Runtime win-x64 -SingleFile`.
+This builds a single-file, framework-dependent executable at `artifacts\publish\win-x64\TcBatchRename.exe`. It requires a matching .NET 10 desktop runtime on the target machine.
 
 ### Deploy
 
@@ -68,32 +68,6 @@ Deploy to a different location with `-Target`:
 ```powershell
 .\deploy.ps1 -Target "C:\Tools\TcBatchRename"
 ```
-
-## Build (publish options)
-
-### Recommended baseline: portable publish
-
-```powershell
-.\publish.ps1
-```
-
-This publishes the app to `artifacts\publish\portable`. It is the least fragile publish option because it does not require downloading extra runtime packs at publish time.
-
-### Optional: single-file framework-dependent publish
-
-```powershell
-.\publish.ps1 -Runtime win-x64 -SingleFile
-```
-
-This produces a single-file executable in `artifacts\publish\win-x64`, but it requires a matching .NET 10 desktop runtime on the target machine.
-
-### Optional: single-file self-contained publish
-
-```powershell
-.\publish.ps1 -Runtime win-x64 -SingleFile -SelfContained
-```
-
-Use this if you want the easiest deployment on a machine that may not already have the matching .NET runtime. The first self-contained publish may need to download runtime packs from NuGet.
 
 ## Configuration
 
